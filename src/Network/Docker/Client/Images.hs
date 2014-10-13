@@ -44,8 +44,8 @@ instance FromJSON Image where
           <*> o .: "Size"
           <*> o .: "VirtualSize"
 
-images :: Client -> IO (W.Response [Image])
-images = imagesWith W.defaults
+listImages :: Client -> IO (W.Response [Image])
+listImages = listImagesWith W.defaults
 
-imagesWith :: W.Options -> Client ->  IO (W.Response [Image])
-imagesWith opts c = W.asJSON =<< getWith opts c "images/json"
+listImagesWith :: W.Options -> Client ->  IO (W.Response [Image])
+listImagesWith opts c = W.asJSON =<< getWith opts c "images/json"
