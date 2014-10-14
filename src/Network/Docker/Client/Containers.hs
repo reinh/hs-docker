@@ -11,6 +11,7 @@ import           Control.Lens.TH
 import           Data.Aeson
 import           Data.Aeson.Types
 import           Data.ByteString.Lazy           (ByteString)
+import qualified Data.ByteString.Lazy           as BS
 import           Data.Default
 import           Data.List.Split
 import           Data.Text                      (Text)
@@ -18,7 +19,7 @@ import qualified Data.Text                      as T
 import           Data.Thyme
 import           Network.Docker.Client.Core
 import qualified Network.Wreq                   as W
-import           Network.Wreq.Types             (Postable)
+import           Network.Wreq.Types             (Postable, postPayload)
 import           Prelude                        hiding (all)
 import           Text.PrettyPrint
 import           Text.PrettyPrint.GenericPretty
@@ -115,6 +116,9 @@ instance ToJSON CreateRequest where
   toJSON = genericToJSON (defaultOptions {fieldLabelModifier = drop 7
                                          ,omitNothingFields = False})
 
+instance Postable CreateRequest where
+  postPayload = postPayload . toJSON
+
 data CreateResponse =
   CreateResponse {_createResponseId       :: String
                  ,_createResponseWarnings :: Maybe [String]}
@@ -126,4 +130,15 @@ instance FromJSON CreateResponse where
   parseJSON = genericParseJSON (defaultOptions {fieldLabelModifier = drop 15})
 
 createContainer :: Client -> W.Options -> CreateRequest -> IO (W.Response CreateResponse)
-createContainer c opts payload = W.asJSON =<< postWith opts c "containers/create" (toJSON payload)
+createContainer c opts payload = W.asJSON =<< postWith opts c "containers/create" payload
+
+data StatusCode = StatusCode Int
+  deriving (Show, Generic)
+
+instance FromJSON StatusCode where
+  parseJSON =
+    withObject "StatusCode" $
+    \o -> StatusCode <$> o .: "StatusCode"
+
+waitContainer :: Client -> String -> W.Options -> IO (W.Response StatusCode)
+waitContainer c id' opts = W.asJSON =<< postWith opts c ("containers" </> id' </> "wait") BS.empty

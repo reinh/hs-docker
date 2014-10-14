@@ -10,19 +10,35 @@ import           Control.Lens.TH
 import           Data.Aeson
 import           Data.ByteString.Lazy           (ByteString)
 import           Data.List.Split
+import           Data.Maybe
+import           Data.Scientific
 import           Data.Text                      (Text)
 import qualified Data.Text                      as T
 import           Data.Thyme
 import qualified Network.Wreq                   as W
 import           Prelude                        hiding (all)
+import           Text.PrettyPrint
 import           Text.PrettyPrint.GenericPretty
 
 import           Network.Docker.Client.Core
 
+newtype EpochTime = EpochTime { getUTCTime :: UTCTime }
+  deriving (Show)
+
+instance Out EpochTime where
+  docPrec _ = text . show
+  doc = text . show
+
+instance FromJSON EpochTime where
+  parseJSON =
+    withScientific
+      "Created"
+      (return . EpochTime . epochToUTC . fromJust . toBoundedInteger)
+
 data Image =
   Image {_imageId          :: String
         ,_imageParentId    :: String
-        ,_imageCreated     :: UTCTime
+        ,_imageCreated     :: EpochTime
         ,_imageRepoTags    :: [String]
         ,_imageSize        :: Int
         ,_imageVirtualSize :: Int}
@@ -39,7 +55,7 @@ instance FromJSON Image where
   parseJSON = withObject "Image" $ \o ->
     Image <$> o .: "Id"
           <*> o .: "ParentId"
-          <*> (epochToUTC <$> o .: "Created")
+          <*> o .: "Created"
           <*> o .: "RepoTags"
           <*> o .: "Size"
           <*> o .: "VirtualSize"
